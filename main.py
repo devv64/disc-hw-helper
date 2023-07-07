@@ -14,6 +14,9 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
+# Define headers globally
+headers = {'Authorization': f'Bearer {CANVAS_ACCESS_TOKEN}'}
+
 @bot.event
 async def on_ready():
     print(f'We have logged in as {bot.user}')
@@ -25,8 +28,8 @@ async def helloworld(ctx):
 @bot.command()
 async def homework(ctx):
     now = datetime.datetime.now()
-    min_date = datetime.datetime.now() - datetime.timedelta(days=240)
-    # Get homework assignments from the Canvas API
+    min_date = datetime.datetime.now() - datetime.timedelta(days=220)
+    # Get homework assignments from the cache
     assignments = get_homework_assignments(min_date.date())
 
     if assignments:
@@ -50,48 +53,63 @@ async def homework(ctx):
     print(datetime.datetime.now() - now)
 
 def get_homework_assignments(min_date):
-    headers = {'Authorization': f'Bearer {CANVAS_ACCESS_TOKEN}'}
+    filtered_assignments = []
+
+    for course in course_cache:
+        course_id = course['id']
+        assignments = [assignment for assignment in assignment_cache if assignment['course_id'] == course_id]
+
+        for assignment in assignments:
+            due_date = assignment['due_at']
+
+            if due_date is not None:
+                due_date = datetime.datetime.strptime(due_date, "%Y-%m-%dT%H:%M:%SZ").date()
+
+                if due_date > min_date:
+                    submission_url = f'{CANVAS_API_URL}/courses/{course_id}/assignments/{assignment["id"]}/submissions/self'
+                    submission_response = requests.get(submission_url, headers=headers, verify=certifi.where())
+
+                    if submission_response.status_code == 200:
+                        submission_info = submission_response.json()
+                        status = submission_info.get('workflow_state', '')
+                        filtered_assignments.append({
+                            'title': assignment['name'],
+                            'due_date': assignment['due_at'],
+                            'status': status,
+                            'course': course['name']
+                        })
+
+    return filtered_assignments
+
+def fetch_courses():
     courses_url = f'{CANVAS_API_URL}/courses'
     response = requests.get(courses_url, headers=headers, verify=certifi.where())
 
     if response.status_code == 200:
-        courses = response.json()
-        filtered_assignments = []
-
-        for course in courses:
-            course_id = course['id']
-            assignments_url = f'{CANVAS_API_URL}/courses/{course_id}/assignments'
-            assignments_response = requests.get(assignments_url, headers=headers, verify=certifi.where())
-
-            if assignments_response.status_code == 200:
-                assignments = assignments_response.json()
-
-                for assignment in assignments:
-                    due_date = assignment['due_at']
-
-                    if due_date is not None:
-                        due_date = datetime.datetime.strptime(due_date, "%Y-%m-%dT%H:%M:%SZ").date()
-
-                        if due_date > min_date:
-                            assignment_id = assignment['id']
-                            submission_url = f'{CANVAS_API_URL}/courses/{course_id}/assignments/{assignment_id}/submissions/self'
-                            submission_response = requests.get(submission_url, headers=headers, verify=certifi.where())
-
-                            if submission_response.status_code == 200:
-                                submission_info = submission_response.json()
-                                status = submission_info.get('workflow_state', '')
-                                filtered_assignments.append({
-                                    'title': assignment['name'],
-                                    'due_date': assignment['due_at'],
-                                    'status': status,
-                                    'course': course['name']
-                                })
-
-        return filtered_assignments
+        return response.json()
     else:
         return []
 
+def fetch_assignments(course_id):
+    assignments_url = f'{CANVAS_API_URL}/courses/{course_id}/assignments'
+    response = requests.get(assignments_url, headers=headers, verify=certifi.where())
 
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return []
 
+# Fetch courses and assignments when the bot starts up
+course_cache = fetch_courses()
+assignment_cache = []
+
+for course in course_cache:
+    course_id = course['id']
+    assignments = fetch_assignments(course_id)
+
+    for assignment in assignments:
+        assignment['course_id'] = course_id
+
+    assignment_cache.extend(assignments)
 
 bot.run(TOKEN)
