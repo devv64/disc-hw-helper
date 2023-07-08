@@ -28,28 +28,27 @@ async def helloworld(ctx):
 @bot.command()
 async def homework(ctx):
     now = datetime.datetime.now()
-    min_date = datetime.datetime.now() - datetime.timedelta(days=220)
+    min_date = datetime.datetime.now() - datetime.timedelta(days=230)
     # Get homework assignments from the cache
     assignments = get_homework_assignments(min_date.date())
 
     if assignments:
-        # Create a formatted todo list
-        todo_list = '\n'.join([f'Assignment: {assignment["title"]}\n'
-                      f'Due Date: {assignment["due_date"]}\n'
-                      f'Course: {assignment["course"]}\n'
-                      f'Status: {assignment["status"]}\n'
-                      f'{"-" * 30}\n'
-                      for assignment in assignments])
-        response = f'Homework assignments:\n{todo_list}'
-    else:
-        response = 'No homework assignments found.'
+        # Create an embedded message
+        embed = discord.Embed(title="Homework Assignments", color=discord.Color.blue())
 
-    # Split the response into multiple messages if needed
-    messages = [response[i:i+2000] for i in range(0, len(response), 2000)]
-    
-    # Send each message to the Discord channel
-    for message in messages:
-        await ctx.send(message)
+        for assignment in assignments:
+            embed.add_field(name="Assignment", value=f"**{assignment['title']}**", inline=False)
+            embed.add_field(name="Due Date", value=assignment["due_date"], inline=True)
+            embed.add_field(name="Course", value=assignment["course"], inline=True)
+            embed.add_field(name="Status", value=assignment["status"], inline=False)
+            embed.add_field(name="\u200b", value="\u200b", inline=False)
+
+        embed.set_footer(text="Created by: @devv64")
+
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send("No homework assignments found.")
+
     print(datetime.datetime.now() - now)
 
 def get_homework_assignments(min_date):
