@@ -17,6 +17,7 @@ headers = {'Authorization': f'Bearer {CANVAS_ACCESS_TOKEN}'}
 # Define the global assignment cache and reminder task
 assignment_cache = []
 reminder_task = None
+user_id = 220278378228350977
 
 @bot.event
 async def on_ready():
@@ -65,6 +66,7 @@ def get_homework_assignments(min_date):
                 due_date = datetime.datetime.strptime(due_date, "%Y-%m-%dT%H:%M:%SZ").date()
 
                 if due_date > min_date:
+                    print(assignment.get('user_id'))
                     filtered_assignments.append({
                         'title': assignment.get('name'),
                         'due_date': due_date,
@@ -100,7 +102,7 @@ def start_reminder_task():
     # Simulate an upcoming assignment
     upcoming_assignment = {
         'title': 'PA6: Red-Black Trees',
-        'due_date': datetime.datetime(2023, 7, 8).date(),
+        'due_date': datetime.datetime(2023, 7, 15).date(),
         'status': 'published',
         'course': '2022F CS 385-A/B/C/D',
     }
@@ -108,7 +110,7 @@ def start_reminder_task():
     # Add the assignment to the assignment cache
     assignment_cache.append(upcoming_assignment)
     print(upcoming_assignment)
-    print(len(assignment_cache))
+    # print(len(assignment_cache))
 
     reminder_task = remind_upcoming_assignments.start()
 
@@ -125,8 +127,9 @@ async def remind_upcoming_assignments():
             
             # if course:
             if 1:
+                user_mention = f"<@{user_id}>" 
                 # message = f"Reminder: The assignment '{assignment.get('title')}' is due today for the course '{course.get('name')}'!"
-                message = f"Reminder: The assignment '{assignment.get('title')}' is due today for the course!"
+                message = f"Reminder: {user_mention} The assignment '{assignment.get('title')}' is due today for the course!"
 
                 channel = bot.get_channel(1127058724754821241)
                 print(channel)
