@@ -5,6 +5,7 @@ import requests
 import certifi
 from config import CANVAS_API_URL, CANVAS_ACCESS_TOKEN
 from globals import assignment_cache, reminder_task, user_id
+import asyncio
 
 headers = {'Authorization': f'Bearer {CANVAS_ACCESS_TOKEN}'}
 
@@ -16,7 +17,7 @@ def setup_commands(bot):
     @bot.command()
     async def homework(ctx):
         now = datetime.datetime.now()
-        min_date = datetime.datetime.now() - datetime.timedelta(days=230)
+        min_date = datetime.datetime.now() - datetime.timedelta(days=260)
         assignments = get_homework_assignments(min_date.date())
 
         if assignments:
@@ -85,42 +86,73 @@ def setup_commands(bot):
             return
 
         # Simulate an upcoming assignment
-        upcoming_assignment = {
-            'title': 'PA6: Red-Black Trees',
-            'due_date': datetime.datetime(2023, 7, 15).date(),
+        upcoming_assignments = [
+        {
+            'title': 'Assignment 1',
+            'due_date': datetime.datetime.now() + datetime.timedelta(days=7),  # 7 days from now
             'status': 'published',
-            'course': '2022F CS 385-A/B/C/D',
+            'course': 'Course A',
+        },
+        {
+            'title': 'Assignment 2',
+            'due_date': datetime.datetime.now() + datetime.timedelta(days=3),  # 3 days from now
+            'status': 'published',
+            'course': 'Course B',
+        },
+        {
+            'title': 'Assignment 3',
+            'due_date': datetime.datetime.now() + datetime.timedelta(days=1),  # 1 day from now
+            'status': 'published',
+            'course': 'Course C',
+        },
+        {
+            'title': 'Assignment 4',
+            'due_date': datetime.datetime.now() + datetime.timedelta(hours=12, seconds=10),  # 12 hours from now
+            'status': 'published',
+            'course': 'Course D',
         }
-
-        # Add the assignment to the assignment cache
-        assignment_cache.append(upcoming_assignment)
-        print(upcoming_assignment)
+        ]
+        
+        # Add the assignments to the assignment cache
+        assignment_cache.extend(upcoming_assignments)
+        print(upcoming_assignments)
         # print(len(assignment_cache))
 
         reminder_task = remind_upcoming_assignments.start()
 
-    @tasks.loop(minutes=1)
+    @tasks.loop(seconds=10)
     async def remind_upcoming_assignments():
-        now = datetime.datetime.now().date()
-        upcoming_assignments = [assignment for assignment in assignment_cache if assignment.get('due_date') and now <= assignment.get('due_date') <= now + datetime.timedelta(days=3)]
-        print(f'Found {len(upcoming_assignments)} upcoming assignments.')
-        print(upcoming_assignments)
+        now = datetime.datetime.now()
 
-        if upcoming_assignments:
-            for assignment in upcoming_assignments:
-                course = get_course_by_id(assignment.get('course_id'))
+        reminder_intervals = [
+            (5, "5 minutes"),
+            (30, "30 minutes"),
+            (1 * 60, "1 hour"),
+            (2 * 60, "2 hours"),
+            (3 * 60, "3 hours"),
+            (6 * 60, "6 hours"),
+            (12 * 60, "12 hours"),
+            (1 * 24 * 60, "1 day"),
+            (3 * 24 * 60, "3 days"),
+            (7 * 24 * 60, "7 days"),
+        ]
 
-                # if course:
-                if 1:
-                    user_mention = f"<@{user_id}>"
-                    # message = f"Reminder: The assignment '{assignment.get('title')}' is due today for the course '{course.get('name')}'!"
-                    message = f"Reminder: {user_mention} The assignment '{assignment.get('title')}' is due today for the course!"
+        for assignment in assignment_cache:
+            due_date = assignment.get('due_date')
+            if due_date:
+                time_difference = due_date - now
+                time_difference_minutes = time_difference.total_seconds() / 60
 
-                    channel = bot.get_channel(1127058724754821241)
-                    print(channel)
-                    await channel.send(message)
-                else:
-                    print(f"Course not found for assignment: {assignment.get('title')}")
+                for interval, interval_name in reminder_intervals:
+                    if 0 <= time_difference_minutes <= interval:
+                        # Check if this assignment has already been reminded for this interval
+                        if not assignment.get(f'reminded_{interval_name}'):
+                            user = await bot.fetch_user(220278378228350977)
+                            channel = bot.get_channel(1127058724754821241)
+                            message = f"Reminder: The assignment '{assignment.get('title')}' is due in {interval_name}!"
+                            await channel.send(message)
+                            assignment[f'reminded_{interval_name}'] = True  # Mark as reminded
+                        break
 
     def get_course_by_id(course_id):
         for course in course_cache:
