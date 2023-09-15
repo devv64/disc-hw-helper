@@ -30,8 +30,10 @@ def setup_commands(bot):
             ctx (commands.Context): The context in which the command is called.
         """
         now = datetime.datetime.now()
-        min_date = datetime.datetime.now() - datetime.timedelta(days=260)
+        min_date = datetime.datetime.now() - datetime.timedelta(days=20)
         assignments = get_homework_assignments(min_date.date())
+
+        print(now, min_date, min_date.date(), assignments)
 
         if assignments:
             embed = discord.Embed(title="Homework Assignments", color=discord.Color.blue())
@@ -63,9 +65,11 @@ def setup_commands(bot):
         """
         filtered_assignments = []
 
+        print(course.get('name') for course in course_cache)
         for course in course_cache:
             course_id = course.get('id')
             assignments = [assignment for assignment in assignment_cache if assignment.get('course_id') == course_id]
+            print(course.get('name'), course_id, assignments)
 
             for assignment in assignments:
                 due_date = assignment.get('due_at')
@@ -91,7 +95,7 @@ def setup_commands(bot):
         Returns:
             list: List of courses retrieved from the API.
         """
-        courses_url = f'{CANVAS_API_URL}/courses'
+        courses_url = f'{CANVAS_API_URL}/courses?per_page=100'
         response = requests.get(courses_url, headers=headers, verify=certifi.where())
 
         if response.status_code == 200:
@@ -130,30 +134,30 @@ def setup_commands(bot):
 
         # Simulate an upcoming assignment
         upcoming_assignments = [
-        {
-            'title': 'Assignment 1',
-            'due_date': datetime.datetime.now() + datetime.timedelta(days=7),  # 7 days from now
-            'status': 'published',
-            'course': 'Course A',
-        },
-        {
-            'title': 'Assignment 2',
-            'due_date': datetime.datetime.now() + datetime.timedelta(days=3),  # 3 days from now
-            'status': 'published',
-            'course': 'Course B',
-        },
-        {
-            'title': 'Assignment 3',
-            'due_date': datetime.datetime.now() + datetime.timedelta(days=1),  # 1 day from now
-            'status': 'published',
-            'course': 'Course C',
-        },
-        {
-            'title': 'Assignment 4',
-            'due_date': datetime.datetime.now() + datetime.timedelta(hours=12, seconds=60),  # 12 hours from now
-            'status': 'published',
-            'course': 'Course D',
-        }
+        # {
+        #     'title': 'Assignment 1',
+        #     'due_date': datetime.datetime.now() + datetime.timedelta(days=7),  # 7 days from now
+        #     'status': 'published',
+        #     'course': 'Course A',
+        # },
+        # {
+        #     'title': 'Assignment 2',
+        #     'due_date': datetime.datetime.now() + datetime.timedelta(days=3),  # 3 days from now
+        #     'status': 'published',
+        #     'course': 'Course B',
+        # },
+        # {
+        #     'title': 'Assignment 3',
+        #     'due_date': datetime.datetime.now() + datetime.timedelta(days=1),  # 1 day from now
+        #     'status': 'published',
+        #     'course': 'Course C',
+        # },
+        # {
+        #     'title': 'Assignment 4',
+        #     'due_date': datetime.datetime.now() + datetime.timedelta(hours=12, seconds=60),  # 12 hours from now
+        #     'status': 'published',
+        #     'course': 'Course D',
+        # }
         ]
         
         # Add the assignments to the assignment cache
@@ -185,7 +189,9 @@ def setup_commands(bot):
             (7 * 24 * 60, "7 days"),
         ]
 
+        # print(assignment_cache)
         for assignment in assignment_cache:
+            # print(assignment)
             due_date = assignment.get('due_date')
             if due_date:
                 time_difference = due_date - now
@@ -222,6 +228,10 @@ def setup_commands(bot):
 
     # Fetch courses and assignments when the bot starts up
     course_cache = fetch_courses()
+    course_cache = [course for course in course_cache if course.get('name') and course.get('name').startswith('2023F')]
+    courses = [course.get('name') for course in course_cache]
+    print(courses)
+    
     for course in course_cache:
         course_id = course.get('id')
         assignments = fetch_assignments(course_id)
